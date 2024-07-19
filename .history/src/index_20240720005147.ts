@@ -115,7 +115,6 @@ export function apply(ctx: Context,config:Config) {
           let reply = tmp_return['reply']
           let emoji = tmp_return['emoji']
           console.log(`${formattedDateTime} 群聊${session.channelId}取得回复:${reply.toString()}\nemoji:${emoji}`)
-          singleAsk[session.author.user.id] = false
           for(let i = 0;i<reply.length;i++){
             await new Promise(resolve => setTimeout(resolve, eachLetterCost * reply[i].length));
             session.send(reply[i].replace('""',""))
@@ -128,6 +127,7 @@ export function apply(ctx: Context,config:Config) {
             sleep(500)
             session.send(h.image(pathToFileURL(resolve('./memes', `${emoji}.png`)).href))
           }
+          singleAsk[session.author.user.id] = false
           sleep(config.singleAskSleep)
           singleAsk[session.author.user.id] = true
           return;

@@ -24,7 +24,6 @@ export interface Config {
   allowPrivateTalkingUsers:Array<string>,
   groups:Array<string>
   privateRefuse:string
-  singleAskSleep:number
 }
 
 
@@ -38,8 +37,7 @@ export const Config: Schema<Config> = Schema.object({
   memeCost:Schema.number().default(600).description('每次发送表情包需要的时间'),
   allowPrivateTalkingUsers:Schema.array(Schema.string()).description('允许私聊的用户列表'),
   groups:Schema.array(Schema.string()).description('激活的群列表'),
-  privateRefuse:Schema.string().description('私聊拒绝回复'),
-  singleAskSleep:Schema.number().default(1000).description('单次询问后等待时间')
+  privateRefuse:Schema.string().description('私聊拒绝回复')
 })
 
 
@@ -63,8 +61,6 @@ const formattedDateTime = currentDate.toLocaleString('zh-CN', {
   second: '2-digit',
   hour12: false,
 });
-
-let singleAsk = {}
 
 let historyMessages = {}
 
@@ -101,21 +97,13 @@ export function apply(ctx: Context,config:Config) {
   ctx.on('message',async (session) => {
     const regex = /^neko/i;
     if(regex.test(session.content) && session.content.length < 15){
-      console.log(`${formattedDateTime} ${singleAsk[session.author.user.id]}`)
-      if(singleAsk[session.author.user.id] === undefined)
-        singleAsk[session.author.user.id] = true
-      console.log(`${formattedDateTime} Neko在群聊${session.channelId}被${session.author.user.name}(${session.author.user.id})提及：${session.content}`)
-      if(singleAsk[session.author.user.id] == false){
-        console.log(`${formattedDateTime} Neko拒绝回答，因为此人还在冷却期间`)
-        return
-      }
+      console.log(`${formattedDateTime} Neko在群聊${session.channelId}被提及：${session.content}`)
       let a = []
-      a.push(SerializeMessage(session))
+      a.push(session.content)
       let tmp_return = await getAIReply(a,apiGPT,prompt,session.channelId)
           let reply = tmp_return['reply']
           let emoji = tmp_return['emoji']
           console.log(`${formattedDateTime} 群聊${session.channelId}取得回复:${reply.toString()}\nemoji:${emoji}`)
-          singleAsk[session.author.user.id] = false
           for(let i = 0;i<reply.length;i++){
             await new Promise(resolve => setTimeout(resolve, eachLetterCost * reply[i].length));
             session.send(reply[i].replace('""',""))
@@ -128,9 +116,6 @@ export function apply(ctx: Context,config:Config) {
             sleep(500)
             session.send(h.image(pathToFileURL(resolve('./memes', `${emoji}.png`)).href))
           }
-          sleep(config.singleAskSleep)
-          singleAsk[session.author.user.id] = true
-          return;
     }
     //私聊处理
     //console.log(historyMessages[session.channelId])
