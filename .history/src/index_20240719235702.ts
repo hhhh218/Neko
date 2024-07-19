@@ -100,9 +100,8 @@ export function apply(ctx: Context,config:Config) {
     if(session.isDirect){
       console.log(`${formattedDateTime} 收到一条私聊消息 ${session.content}`)
       if(!(session.userId in config.allowPrivateTalkingUsers)){
-        sleep(eachLetterCost * config.privateRefuse.length)
-        session.send(config.privateRefuse)
-        sleep(1000)
+        session.send('四呵不让我和陌生人讲话')
+        sleep()
         session.send(h.image(pathToFileURL(resolve('./memes', `拒绝.png`)).href))
         return
       }

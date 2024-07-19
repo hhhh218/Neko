@@ -23,7 +23,6 @@ export interface Config {
   memeCost:number,
   allowPrivateTalkingUsers:Array<string>,
   groups:Array<string>
-  privateRefuse:string
 }
 
 
@@ -36,8 +35,7 @@ export const Config: Schema<Config> = Schema.object({
   eachLetterCost:Schema.number().default(480).description('发言时每个字需要等待的时间'),
   memeCost:Schema.number().default(600).description('每次发送表情包需要的时间'),
   allowPrivateTalkingUsers:Schema.array(Schema.string()).description('允许私聊的用户列表'),
-  groups:Schema.array(Schema.string()).description('激活的群列表'),
-  privateRefuse:Schema.string().description('私聊拒绝回复')
+  groups:Schema.array(Schema.string()).description('激活的群列表')
 })
 
 
@@ -100,9 +98,7 @@ export function apply(ctx: Context,config:Config) {
     if(session.isDirect){
       console.log(`${formattedDateTime} 收到一条私聊消息 ${session.content}`)
       if(!(session.userId in config.allowPrivateTalkingUsers)){
-        sleep(eachLetterCost * config.privateRefuse.length)
-        session.send(config.privateRefuse)
-        sleep(1000)
+        session.send('四呵不让我和陌生人讲话')
         session.send(h.image(pathToFileURL(resolve('./memes', `拒绝.png`)).href))
         return
       }
@@ -148,11 +144,12 @@ export function apply(ctx: Context,config:Config) {
       }
     }
 )
-  ctx.command('neko<prompt>').action(async (_,prompt) => {
-    logger.debug(prompt,prompt)
-    const res = await apiGPT.ask(prompt,'1')
-    _.session.send(res['text'])
-  })
+  //主动ai
+  // ctx.command('neko <prompt>', 'neko').action(async (_,prompt) => {
+  //   logger.debug(prompt,prompt)
+  //   const res = await apiGPT.ask(prompt,'1')
+  //   _.session.send(res['text'])
+  // })
 
 
   //查看暂存消息列表
