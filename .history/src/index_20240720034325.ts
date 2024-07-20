@@ -127,7 +127,7 @@ export function apply(ctx: Context,config:Config) {
         return
       }
       let a = []
-      a.push(SerializeMessage(session.author.user.name,session.content))
+      a.push(SerializeMessage(session))
       let tmp_return = await getAIReply(a,apiGPT,prompt,session.channelId)
           let reply = tmp_return['reply']
           let emoji = tmp_return['emoji']
@@ -140,6 +140,7 @@ export function apply(ctx: Context,config:Config) {
     }
     //私聊处理
     //console.log(historyMessages[session.channelId])
+    historyMessages[session.userId] = []
     if(session.isDirect){
       console.log(`${formattedDateTime} 收到一条私聊消息 ${session.content}`)
       if(!(config.allowPrivateTalkingUsers.includes(session.author.user.id))){
@@ -150,7 +151,7 @@ export function apply(ctx: Context,config:Config) {
         return
       }else{
         console.log(`${formattedDateTime} 检测新私聊消息 ${session.content}`)
-        singleMessages.push(SerializeMessage(session.author.user.name,session.content))
+        singleMessages.push(SerializeMessage(session))
         lastMessageTime = Date.now();
         if (intervalId) {
             clearInterval(intervalId);
@@ -164,21 +165,15 @@ export function apply(ctx: Context,config:Config) {
                 let reply = tmp_return['reply']
                 let emoji = tmp_return['emoji']
                 console.log(`${formattedDateTime} 私聊${session.userId}取得回复:${reply}\nemoji:${emoji}`)
-                //将neko的回复添加至历史
-                console.log(tmp_return['origin'])
-                singleMessages.push(SerializeMessage('Neko',tmp_return['origin']))
-                console.log(singleMessages)
                 sendReply(session,reply,emoji,eachLetterCost)
             }
-        }, 7000)
+        }, 7000);
         intervalId2 = setInterval(() => {
           if (Date.now() - lastMessageTime > 600000) {
               console.log('十分钟内没有收到新消息，停止检测');
               clearInterval(intervalId2);
               // 在这里处理没有新消息的情况
-              if(singleMessages.length > 30){
-                singleMessages = []
-              }
+              singleMessages = []
           }
       }, 600000);
       }
@@ -189,7 +184,7 @@ export function apply(ctx: Context,config:Config) {
     if(activeGroups.includes(session.channelId) && receive[session.channelId] == true && session.isDirect == false){
       console.log(receive)
       console.log(historyMessages[session.channelId])
-      historyMessages[session.channelId].push(SerializeMessage(session.author.user.name,session.content))
+      historyMessages[session.channelId].push(SerializeMessage(session))
       console.log(`${formattedDateTime} 群聊 ${session.channelId} 收到一条消息 ${session.content}
         \n目前群聊${session.channelId}队列${historyMessages[session.channelId].length}/${messagesLength}`)
       if(historyMessages[session.channelId].length >= messagesLength){
@@ -212,6 +207,7 @@ export function apply(ctx: Context,config:Config) {
       }
       }
     }
+    
 )
   ctx.command('neko<prompt>').action(async (_,prompt) => {
     logger.debug(prompt,prompt)
@@ -228,15 +224,15 @@ export function apply(ctx: Context,config:Config) {
 }
 
 
-function SerializeMessage(username,content){
-    let message =
-    `
-    发送时间:${formattedDateTime}
-    发送者:${username}
-    发送内容:${content}
-    `
-    return message
+function SerializeMessage(session){
+  let message =
+  `
+  发送时间:${formattedDateTime}\n
+  发送者:${session.author.username}\n
+  发送内容:${session.content}
+  `
   //console.log(`${formattedDateTime} 序列化一个信息 ${message} ${session.channelId}`)
+  return message
 }
 
 function GetEmoji(str) {
@@ -263,7 +259,6 @@ async function getAIReply(messages:string[],gpt:ApiGpt,prompt,channelId){
         let apiGPT = gpt
         const res = await apiGPT.ask(prompt+messages.toString(), '1')
         let content = res['text']
-        let origin = content
         console.log(`${formattedDateTime} AI返回内容:${content}`)
         historyMessages[channelId] = []
         let emoji = GetEmoji(content)
@@ -278,8 +273,7 @@ async function getAIReply(messages:string[],gpt:ApiGpt,prompt,channelId){
         let reply:string[] = content.split(regex)
         return {
           'reply':reply,
-          'emoji':emoji,
-          'origin':origin,
+          'emoji':emoji
         }
 }
 async function sendReply(session,text,emoji,eachLetterCost){

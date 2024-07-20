@@ -25,7 +25,6 @@ export interface Config {
   groups:Array<string>
   privateRefuse:string
   singleAskSleep:number
-  singleTalkWaiting:number
 }
 
 
@@ -40,8 +39,7 @@ export const Config: Schema<Config> = Schema.object({
   allowPrivateTalkingUsers:Schema.array(Schema.string()).description('允许私聊的用户列表'),
   groups:Schema.array(Schema.string()).description('激活的群列表'),
   privateRefuse:Schema.string().description('私聊拒绝回复'),
-  singleAskSleep:Schema.number().default(1000).description('单次询问后等待时间'),
-  singleTalkWaiting:Schema.number().default(12000).description('单次私聊等待时间')
+  singleAskSleep:Schema.number().default(1000).description('单次询问后等待时间')
 })
 
 
@@ -68,19 +66,7 @@ const formattedDateTime = currentDate.toLocaleString('zh-CN', {
 
 let singleAsk = {}
 
-let lastMessageTime = 0
-
-let waiting = false
-
 let historyMessages = {}
-
-let singleMessages = []
-
-let intervalId;
-
-let intervalId2
-
-let tmp_sM
 
 //程序开始
 export function apply(ctx: Context,config:Config) {
@@ -101,7 +87,6 @@ export function apply(ctx: Context,config:Config) {
   const key = config.key
   //读取prompt
   const prompt = fs.readFileSync('./external/Neko/prompt.txt','utf-8')
-  const singlePrompt = fs.readFileSync('./external/Neko/single_prompt.txt','utf-8')
   const apiGPT = new ApiGpt(ctx,{
     apiKey: key,
     model:'gpt-4o-mini',
@@ -114,27 +99,36 @@ export function apply(ctx: Context,config:Config) {
 
   //监听消息
   ctx.on('message',async (session) => {
-    //提及回复
     const regex = /^neko/i;
-    if(regex.test(session.content) && session.content.length < 30 && session.isDirect == false){
-      //console.log(`${formattedDateTime} ${singleAsk[session.author.user.id]}`)
-      if(singleAsk[session.author.user.id] === undefined){
+    if(regex.test(session.content) && session.content.length < 30){
+      console.log(`${formattedDateTime} ${singleAsk[session.author.user.id]}`)
+      if(singleAsk[session.author.user.id] === undefined)
         singleAsk[session.author.user.id] = true
-      }
       console.log(`${formattedDateTime} Neko在群聊${session.channelId}被${session.author.user.name}(${session.author.user.id})提及：${session.content}`)
       if(singleAsk[session.author.user.id] == false){
         console.log(`${formattedDateTime} Neko拒绝回答，因为此人还在冷却期间`)
         return
       }
       let a = []
-      a.push(SerializeMessage(session.author.user.name,session.content))
+      a.push(SerializeMessage(session))
       let tmp_return = await getAIReply(a,apiGPT,prompt,session.channelId)
           let reply = tmp_return['reply']
           let emoji = tmp_return['emoji']
           console.log(`${formattedDateTime} 群聊${session.channelId}取得回复:${reply.toString()}\nemoji:${emoji}`)
           singleAsk[session.author.user.id] = false
-          sendReply(session,reply,emoji,eachLetterCost)
-          await sleep(config.singleAskSleep)
+          for(let i = 0;i<reply.length;i++){
+            await new Promise(resolve => setTimeout(resolve, eachLetterCost * reply[i].length));
+            session.send(reply[i].replace('""',""))
+          }
+          //发送表情
+          if(emoji != null){
+            if(emoji == '万用'){
+              emoji = emoji + randomInt(1,2).toString()
+            }
+            sleep(500)
+            session.send(h.image(pathToFileURL(resolve('./memes', `${emoji}.png`)).href))
+          }
+          sleep(config.singleAskSleep)
           singleAsk[session.author.user.id] = true
           return;
     }
@@ -142,54 +136,21 @@ export function apply(ctx: Context,config:Config) {
     //console.log(historyMessages[session.channelId])
     if(session.isDirect){
       console.log(`${formattedDateTime} 收到一条私聊消息 ${session.content}`)
-      if(!(config.allowPrivateTalkingUsers.includes(session.author.user.id))){
+      if(!(session.userId in config.allowPrivateTalkingUsers)){
         sleep(eachLetterCost * config.privateRefuse.length)
         session.send(config.privateRefuse)
         sleep(1000)
         session.send(h.image(pathToFileURL(resolve('./memes', `拒绝.png`)).href))
         return
-      }else{
-        console.log(`${formattedDateTime} 检测新私聊消息 ${session.content}`)
-        singleMessages.push(SerializeMessage(session.author.user.name,session.content))
-        lastMessageTime = Date.now();
-        if (intervalId) {
-            clearInterval(intervalId);
-        }
-        intervalId = setInterval(async () => {
-            if (Date.now() - lastMessageTime > 60000) {
-                console.log('60秒内没有收到新消息');
-                clearInterval(intervalId);
-                console.log('我到这啦')
-                let tmp_return = await getAIReply(singleMessages,apiGPT,singlePrompt,session.author.user.id)
-                let reply = tmp_return['reply']
-                let emoji = tmp_return['emoji']
-                console.log(`${formattedDateTime} 私聊${session.userId}取得回复:${reply}\nemoji:${emoji}`)
-                //将neko的回复添加至历史
-                console.log(tmp_return['origin'])
-                singleMessages.push(SerializeMessage('Neko',tmp_return['origin']))
-                console.log(singleMessages)
-                sendReply(session,reply,emoji,eachLetterCost)
-            }
-        }, 7000)
-        intervalId2 = setInterval(() => {
-          if (Date.now() - lastMessageTime > 600000) {
-              console.log('十分钟内没有收到新消息，停止检测');
-              clearInterval(intervalId2);
-              // 在这里处理没有新消息的情况
-              if(singleMessages.length > 30){
-                singleMessages = []
-              }
-          }
-      }, 600000);
       }
     }
     console.log(receive)
     console.log(activeGroups.includes(session.channelId))
     //检测队列及请求回复
-    if(activeGroups.includes(session.channelId) && receive[session.channelId] == true && session.isDirect == false){
+    if(activeGroups.includes(session.channelId) && receive[session.channelId] == true){
       console.log(receive)
       console.log(historyMessages[session.channelId])
-      historyMessages[session.channelId].push(SerializeMessage(session.author.user.name,session.content))
+      historyMessages[session.channelId].push(SerializeMessage(session))
       console.log(`${formattedDateTime} 群聊 ${session.channelId} 收到一条消息 ${session.content}
         \n目前群聊${session.channelId}队列${historyMessages[session.channelId].length}/${messagesLength}`)
       if(historyMessages[session.channelId].length >= messagesLength){
@@ -200,8 +161,19 @@ export function apply(ctx: Context,config:Config) {
           let tmp_return = await getAIReply(historyMessages[session.channelId],apiGPT,prompt,session.channelId)
           let reply = tmp_return['reply']
           let emoji = tmp_return['emoji']
-          console.log(`${formattedDateTime} 群聊${session.channelId}取得回复:${reply}\nemoji:${emoji}`)
-          sendReply(session,reply,emoji,eachLetterCost)
+          console.log(`${formattedDateTime} 群聊${session.channelId}取得回复:${reply.toString()}\nemoji:${emoji}`)
+          for(let i = 0;i<reply.length;i++){
+            await new Promise(resolve => setTimeout(resolve, eachLetterCost * reply[i].length));
+            session.send(reply[i].replace('""',""))
+          }
+          //发送表情
+          if(emoji != null){
+            if(emoji == '万用'){
+              emoji = emoji + randomInt(1,2).toString()
+            }
+            sleep(500)
+            session.send(h.image(pathToFileURL(resolve('./memes', `${emoji}.png`)).href))
+          }
           historyMessages[session.channelId] = []
           sleep(sleepTime)
           receive[session.channelId] = true
@@ -219,6 +191,7 @@ export function apply(ctx: Context,config:Config) {
     _.session.send(res['text'])
   })
 
+
   //查看暂存消息列表
   ctx.command('LM').action((_) => {
     //historyMessages.pop()
@@ -228,15 +201,15 @@ export function apply(ctx: Context,config:Config) {
 }
 
 
-function SerializeMessage(username,content){
-    let message =
-    `
-    发送时间:${formattedDateTime}
-    发送者:${username}
-    发送内容:${content}
-    `
-    return message
-  //console.log(`${formattedDateTime} 序列化一个信息 ${message} ${session.channelId}`)
+function SerializeMessage(session){
+  let message =
+  `
+  发送时间:${formattedDateTime}\n
+  发送者:${session.author.username}\n
+  发送内容:${session.content}
+  `
+  console.log(`${formattedDateTime} 序列化一个信息 ${message} ${session.channelId}`)
+  return message
 }
 
 function GetEmoji(str) {
@@ -263,7 +236,6 @@ async function getAIReply(messages:string[],gpt:ApiGpt,prompt,channelId){
         let apiGPT = gpt
         const res = await apiGPT.ask(prompt+messages.toString(), '1')
         let content = res['text']
-        let origin = content
         console.log(`${formattedDateTime} AI返回内容:${content}`)
         historyMessages[channelId] = []
         let emoji = GetEmoji(content)
@@ -278,21 +250,6 @@ async function getAIReply(messages:string[],gpt:ApiGpt,prompt,channelId){
         let reply:string[] = content.split(regex)
         return {
           'reply':reply,
-          'emoji':emoji,
-          'origin':origin,
+          'emoji':emoji
         }
-}
-async function sendReply(session,text,emoji,eachLetterCost){
-  for(let i = 0;i<text.length;i++){
-    await sleep(eachLetterCost * text[i].length)
-    session.send(text[i].replace('""',""))
-  }
-  //发送表情
-  if(emoji != null){
-    if(emoji == '万用'){
-      emoji = emoji + randomInt(1,2).toString()
-    }
-    await sleep(500)
-    session.send(h.image(pathToFileURL(resolve('./memes', `${emoji}.png`)).href))
-  }
 }

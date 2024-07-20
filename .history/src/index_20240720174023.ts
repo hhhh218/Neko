@@ -170,7 +170,7 @@ export function apply(ctx: Context,config:Config) {
                 console.log(singleMessages)
                 sendReply(session,reply,emoji,eachLetterCost)
             }
-        }, 7000)
+        }, 7000);
         intervalId2 = setInterval(() => {
           if (Date.now() - lastMessageTime > 600000) {
               console.log('十分钟内没有收到新消息，停止检测');

@@ -160,17 +160,16 @@ export function apply(ctx: Context,config:Config) {
                 console.log('60秒内没有收到新消息');
                 clearInterval(intervalId);
                 console.log('我到这啦')
+                console.log(singleMessages)
                 let tmp_return = await getAIReply(singleMessages,apiGPT,singlePrompt,session.author.user.id)
                 let reply = tmp_return['reply']
                 let emoji = tmp_return['emoji']
                 console.log(`${formattedDateTime} 私聊${session.userId}取得回复:${reply}\nemoji:${emoji}`)
                 //将neko的回复添加至历史
-                console.log(tmp_return['origin'])
                 singleMessages.push(SerializeMessage('Neko',tmp_return['origin']))
-                console.log(singleMessages)
                 sendReply(session,reply,emoji,eachLetterCost)
             }
-        }, 7000)
+        }, 7000);
         intervalId2 = setInterval(() => {
           if (Date.now() - lastMessageTime > 600000) {
               console.log('十分钟内没有收到新消息，停止检测');
@@ -231,8 +230,8 @@ export function apply(ctx: Context,config:Config) {
 function SerializeMessage(username,content){
     let message =
     `
-    发送时间:${formattedDateTime}
-    发送者:${username}
+    发送时间:${formattedDateTime}\n
+    发送者:${username}\n
     发送内容:${content}
     `
     return message
