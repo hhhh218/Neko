@@ -12,7 +12,7 @@ import { config } from 'process';
 import { channel } from 'diagnostics_channel';
 import { serialize } from 'v8';
 
-export const name = 'neko'
+export const name = 'neko';
 
 export interface Config {
   key:string,
@@ -290,7 +290,7 @@ async function sendReply(session,text,emoji,eachLetterCost){
   //发送表情
   if(emoji != null){
     if(emoji == '万用'){
-      emoji = emoji + randomInt(1,2).toString()
+      emoji = emoji + randomInt(1,3).toString()
     }
     await sleep(500)
     session.send(h.image(pathToFileURL(resolve('./memes', `${emoji}.png`)).href))
