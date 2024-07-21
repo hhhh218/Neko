@@ -1,14 +1,13 @@
 {
-  "name": "koishi-plugin-neko",
-  "description": "AI user",
-  "version": "0.0.1",
+  "name": "koishi-plugin-neko-chatbot",
+  "description": "仿真度高可以发表情的ai群友，甚至可以私聊当女友(划掉",
+  "version": "1.0.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
-  "license": "MIT",
   "keywords": [
     "chatbot",
     "koishi",
@@ -16,5 +15,23 @@
   ],
   "peerDependencies": {
     "koishi": "^4.17.9"
+  },
+  "contributors":[
+    "呵喝喝呵<hhhh218@yeah.net>"
+  ],
+  "license": "Apache-2.0 license",
+  "homepage": "https://github.com/hhhh218/Neko",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hhhh218/Neko.git"
+  },
+   "koishi": {
+    "description": {
+      "zh": "仿真度高可以发表情的ai群友，甚至可以私聊当女友(划掉"
+    },
+    "service": {
+      "required": ["@miemiemie/gpt-api"]
+    },
+    "preview":true
   }
 }
