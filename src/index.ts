@@ -223,7 +223,7 @@ export const Config: Schema<Config> = Schema.object({
     .default(600)
     .description("每次发送表情包需要的时间"),
   allowPrivateTalkingUsers: Schema.array(Schema.string()).description(
-    "允许私聊的用户列表"
+    "注意：目前仅支持单人，所以这里只填一个用户。允许私聊的用户列表"
   ),
   groups: Schema.array(Schema.string()).description("激活的群列表"),
   privateRefuse: Schema.string()
