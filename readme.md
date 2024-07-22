@@ -1,6 +1,6 @@
 # koishi-plugin-neko-chatbot
 
-[![npm](https://img.shields.io/npm/v/koishi-plugin-neko?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-neko-chatbot)
+[![npm](https://img.shields.io/npm/v/koishi-plugin-neko?style=flat-square)](https://www.npmjs.com/package/koishi-plugin-neko)
 
 ## 仿真度高可以发表情的ai群友，~~甚至可以私聊当女友(划掉~~
 
