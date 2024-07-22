@@ -448,10 +448,10 @@ export function apply(ctx: Context, config: Config) {
       //发送请求
       if (messageCount[session.channelId] >= messagesLength) {
         tmp_random[session.channelId] = Math.random();
+        messageCount[session.channelId] = 0;
         //请求
         if (tmp_random[session.channelId] < random) {
           console.log(`${formattedDateTime} 消息队列已满，发送请求`);
-          messageCount[session.channelId] = 0;
           receive[session.channelId] = false;
           let tmp_return = await getAIReply(
             historyMessages[session.channelId],
