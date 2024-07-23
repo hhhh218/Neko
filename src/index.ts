@@ -173,15 +173,18 @@ let receive = {};
 
 const currentDate = new Date();
 
-const formattedDateTime = currentDate.toLocaleString("zh-CN", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-});
+function formattedDateTime() {
+  let formattedDateTime = currentDate.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  return formattedDateTime;
+}
 
 let singleAsk = {};
 
@@ -227,7 +230,7 @@ export function apply(ctx: Context, config: Config) {
     receive[activeGroups[i]] = true;
     tmp_random[activeGroups[i]] = 0;
   }
-  console.log(`${formattedDateTime} 激活的群列表:${activeGroups}`);
+  console.log(`${formattedDateTime()} 激活的群列表:${activeGroups}`);
   //声明
   const messagesLength = config.messagesLength;
   const eachLetterCost = config.eachLetterCost;
@@ -244,8 +247,8 @@ export function apply(ctx: Context, config: Config) {
     reverseProxy: config.proxy,
   });
 
-  console.log(`${formattedDateTime} 插件启动`);
-  console.log(`${formattedDateTime} prompt:${prompt}`);
+  console.log(`${formattedDateTime()} 插件启动`);
+  console.log(`${formattedDateTime()} prompt:${prompt}`);
 
   //监听消息
   ctx.on("message", async (session) => {
@@ -261,10 +264,12 @@ export function apply(ctx: Context, config: Config) {
         singleAsk[session.userId] = true;
       }
       console.log(
-        `${formattedDateTime} Bot在群聊${session.channelId}被${session.author.user.name}(${session.userId})提及：${session.content}`
+        `${formattedDateTime()} Bot在群聊${session.channelId}被${
+          session.author.user.name
+        }(${session.userId})提及：${session.content}`
       );
       if (singleAsk[session.userId] == false) {
-        console.log(`${formattedDateTime} Bot拒绝回答，因为此人还在冷却期间`);
+        console.log(`${formattedDateTime()} Bot拒绝回答，因为此人还在冷却期间`);
         return;
       }
       historyMessages[session.channelId].push(
@@ -278,7 +283,7 @@ export function apply(ctx: Context, config: Config) {
       let reply = tmp_return["reply"];
       let emoji = tmp_return["emoji"];
       console.log(
-        `${formattedDateTime} 群聊${
+        `${formattedDateTime()} 群聊${
           session.channelId
         }取得回复:${reply.toString()}\nemoji:${emoji}`
       );
@@ -293,7 +298,7 @@ export function apply(ctx: Context, config: Config) {
     }
     //私聊处理
     if (session.isDirect) {
-      console.log(`${formattedDateTime} 收到一条私聊消息 ${session.content}`);
+      console.log(`${formattedDateTime()} 收到一条私聊消息 ${session.content}`);
       if (!config.allowPrivateTalkingUsers.includes(session.userId)) {
         sleep(eachLetterCost * config.privateRefuse.length);
         session.send(config.privateRefuse);
@@ -305,7 +310,7 @@ export function apply(ctx: Context, config: Config) {
         }
         return;
       } else {
-        console.log(`${formattedDateTime} 检测新私聊消息 ${session.content}`);
+        console.log(`${formattedDateTime()} 检测新私聊消息 ${session.content}`);
         singleMessages.push(
           SerializeMessage(session.author.user.name, session.content)
         );
@@ -327,7 +332,9 @@ export function apply(ctx: Context, config: Config) {
             let reply = tmp_return["reply"];
             let emoji = tmp_return["emoji"];
             console.log(
-              `${formattedDateTime} 私聊${session.userId}取得回复:${reply}\nemoji:${emoji}`
+              `${formattedDateTime()} 私聊${
+                session.userId
+              }取得回复:${reply}\nemoji:${emoji}`
             );
             //将neko的回复添加至历史
             console.log(tmp_return["origin"]);
@@ -365,13 +372,18 @@ export function apply(ctx: Context, config: Config) {
     ) {
       //消息添加及上报
       if (messageCount[session.channelId] >= config.maxGroupMessages) {
+        console.log(
+          `${formattedDateTime()} 群聊${
+            session.channelId
+          }队列已满，移除最早消息`
+        );
         historyMessages[session.channelId].shift();
       }
       historyMessages[session.channelId].push(
         SerializeMessage(session.author.user.name, session.content)
       );
       messageCount[session.channelId]++;
-      console.log(`${formattedDateTime} 群聊 ${
+      console.log(`${formattedDateTime()} 群聊 ${
         session.channelId
       } 收到一条消息 ${session.content}
         \n目前群聊${session.channelId}队列${
@@ -383,7 +395,7 @@ export function apply(ctx: Context, config: Config) {
         messageCount[session.channelId] = 0;
         //请求
         if (tmp_random[session.channelId] < random) {
-          console.log(`${formattedDateTime} 消息队列已满，发送请求`);
+          console.log(`${formattedDateTime()} 消息队列已满，发送请求`);
           receive[session.channelId] = false;
           let tmp_return = await getAIReply(
             historyMessages[session.channelId],
@@ -393,7 +405,9 @@ export function apply(ctx: Context, config: Config) {
           let reply = tmp_return["reply"];
           let emoji = tmp_return["emoji"];
           console.log(
-            `${formattedDateTime} 群聊${session.channelId}取得回复:${reply}\nemoji:${emoji}`
+            `${formattedDateTime()} 群聊${
+              session.channelId
+            }取得回复:${reply}\nemoji:${emoji}`
           );
           historyMessages[session.channelId].push(
             SerializeMessage(config.nickName, tmp_return["origin"])
@@ -410,8 +424,7 @@ export function apply(ctx: Context, config: Config) {
           receive[session.channelId] = true;
         } else if (tmp_random[session.channelId] > random) {
           //随机不回复
-          historyMessages[session.channelId] = [];
-          console.log(`${formattedDateTime} 随机取数决定此次不回复`);
+          console.log(`${formattedDateTime()} 随机取数决定此次不回复`);
         }
       }
     }
@@ -420,14 +433,14 @@ export function apply(ctx: Context, config: Config) {
   //查看暂存消息列表
   ctx.command("LM").action((_) => {
     //historyMessages.pop()
-    console.log(`${formattedDateTime} ${historyMessages.toString()}`);
+    console.log(`${formattedDateTime()} ${historyMessages.toString()}`);
     _.session.send("已输出至console");
   });
 }
 
 function SerializeMessage(username, content) {
   let message = `
-    发送时间:${formattedDateTime}
+    发送时间:${formattedDateTime()}
     发送者:${username}
     发送内容:${content}
     `;
@@ -456,13 +469,13 @@ function removeEmoji(str) {
 
 async function getAIReply(messages: string[], gpt: ApiGpt, prompt) {
   let apiGPT = gpt;
-  console.log(`${formattedDateTime} 向ai发送了请求${messages.toString()}`);
+  console.log(`${formattedDateTime()} 向ai发送了请求${messages.toString()}`);
   const res = await apiGPT.ask(prompt + messages.toString(), "1");
   let content = res["text"];
   let origin = content;
-  console.log(`${formattedDateTime} AI返回内容:${content}`);
+  console.log(`${formattedDateTime()} AI返回内容:${content}`);
   let emoji = GetEmoji(content);
-  console.log(`${formattedDateTime} 表情:${emoji}`);
+  console.log(`${formattedDateTime()} 表情:${emoji}`);
   content = content.replace(emoji, "");
   content = content.replace("[]", "");
   content = content.replace(emoji, "");
@@ -498,7 +511,7 @@ async function sendReply(
     if (enableMemes) {
       session.send(
         console.log(
-          `${formattedDateTime} 发送表情:${path.resolve(
+          `${formattedDateTime()} 发送表情:${path.resolve(
             memesPath,
             `${emoji}.png`
           )}`
