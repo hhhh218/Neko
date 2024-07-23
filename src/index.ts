@@ -12,7 +12,7 @@ import * as path from "path";
 
 export const name = "neko";
 
-export const usage = `使用claude3.5模型仿真度会更好`;
+export const usage = `使用claude3.5模型仿真度会更好\ngithub主页：https://github.com/hhhh218/Neko表情配置参上`;
 
 export interface Config {
   nickName: string;
