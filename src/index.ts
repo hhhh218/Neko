@@ -2,14 +2,17 @@ import { Context, h, Logger, Random, Schema, sleep, Time } from "koishi";
 
 import { pathToFileURL } from "url";
 
-import { resolve } from "path";
-
 import ApiGpt from "@miemiemie/koishi-plugin-gpt-api";
 
 import { randomInt } from "crypto";
-import { channel, config } from "process";
+
+import * as fs from "fs";
+
+import * as path from "path";
 
 export const name = "neko";
+
+export const usage = `使用claude3.5模型仿真度会更好`;
 
 export interface Config {
   nickName: string;
@@ -46,6 +49,7 @@ export const Config: Schema<Config> = Schema.object({
   prompt: Schema.string().description("ai的人格等").default(`
 [**你叫Neko，在日常生活里，你是‘山东威海一中’的性格温顺的高一学生。你是一个女生**
 你在一个QQ群中，我会向你输入群聊中的聊天记录，具体格式我会在下文中给出，你需要想想在这个情景下你接下来会说什么，然后按格式回复
+**若聊天记录中发言用户是neko则说明这是你曾经的发言**
 **你补全的话题应与主要聊天记录相关，且符合你的人设，你是‘山东威海一中’，不是人工智能助手**
 不要讨论别的话题或试图结束聊天，也不要一直复读之前说过的话，不要问无意义的问题
 **你补全的风格应该较为简短且口语化，切忌把话说的完整或太长，切忌使用书面语言**
@@ -84,6 +88,7 @@ export const Config: Schema<Config> = Schema.object({
   singlePrompt: Schema.string().description("私聊时ai的人格等").default(`
 **你叫Neko，在日常生活里，你是‘山东威海一中’的性格温顺的高一学生。你是一个女生**
 你在与一个人对话，我会向你输入聊天记录，具体格式我会在下文中给出，你需要想想在这个情景下你接下来会说什么，然后按格式回复
+**若聊天记录中发言用户是neko则说明这是你曾经的发言**
 **你补全的话题应与主要聊天记录相关，且符合你的人设，你是‘山东威海一中’，不是人工智能助手**
 不要讨论别的话题或试图结束聊天，也不要一直复读之前说过的话，不要问无意义的问题
 **你补全的风格应该较为简短且口语化，切忌把话说的完整或太长，切忌使用书面语言，例如你回答时要使用短句，句尾不加句号，少用如呢，呀等语气词**
@@ -151,7 +156,7 @@ export const Config: Schema<Config> = Schema.object({
     .default("主人不让我和陌生人说话"),
   singleAskSleep: Schema.number()
     .default(1000)
-    .description("单次询问后等待时间"),
+    .description("群聊中被提及的个人冷却时间"),
   singleTalkWaiting: Schema.number()
     .default(12000)
     .description("私聊时每过设置时间就检测有无新消息，看不懂就默认")
@@ -210,6 +215,11 @@ export function apply(ctx: Context, config: Config) {
   const enableMemes = config.enableMemes;
   let tmp_random = {};
   let activeGroups = config.groups;
+  //识别表情
+  //读取表情
+  for (let key in memes) {
+    memes[key] = readFilesInDirectory(memesPath + `/${key}`);
+  }
   //初始化
   for (let i = 0; i < activeGroups.length; i++) {
     historyMessages[activeGroups[i]] = [];
@@ -247,13 +257,13 @@ export function apply(ctx: Context, config: Config) {
       session.content.length < 30 &&
       session.isDirect == false
     ) {
-      if (singleAsk[session.author.user.id] === undefined) {
-        singleAsk[session.author.user.id] = true;
+      if (singleAsk[session.userId] === undefined) {
+        singleAsk[session.userId] = true;
       }
       console.log(
-        `${formattedDateTime} Bot在群聊${session.channelId}被${session.author.user.name}(${session.author.user.id})提及：${session.content}`
+        `${formattedDateTime} Bot在群聊${session.channelId}被${session.author.user.name}(${session.userId})提及：${session.content}`
       );
-      if (singleAsk[session.author.user.id] == false) {
+      if (singleAsk[session.userId] == false) {
         console.log(`${formattedDateTime} Bot拒绝回答，因为此人还在冷却期间`);
         return;
       }
@@ -272,25 +282,25 @@ export function apply(ctx: Context, config: Config) {
           session.channelId
         }取得回复:${reply.toString()}\nemoji:${emoji}`
       );
-      singleAsk[session.author.user.id] = false;
+      singleAsk[session.userId] = false;
       sendReply(session, reply, emoji, eachLetterCost, enableMemes, memesPath);
       historyMessages[session.channelId].push(
         SerializeMessage(config.nickName, tmp_return["origin"])
       );
       await sleep(config.singleAskSleep);
-      singleAsk[session.author.user.id] = true;
+      singleAsk[session.userId] = true;
       return;
     }
     //私聊处理
     if (session.isDirect) {
       console.log(`${formattedDateTime} 收到一条私聊消息 ${session.content}`);
-      if (!config.allowPrivateTalkingUsers.includes(session.author.user.id)) {
+      if (!config.allowPrivateTalkingUsers.includes(session.userId)) {
         sleep(eachLetterCost * config.privateRefuse.length);
         session.send(config.privateRefuse);
         sleep(1000);
         if (enableMemes) {
           session.send(
-            h.image(pathToFileURL(resolve(memesPath, `拒绝.png`)).href)
+            h.image(pathToFileURL(path.resolve(memesPath, `拒绝.png`)).href)
           );
         }
         return;
@@ -458,8 +468,8 @@ async function getAIReply(messages: string[], gpt: ApiGpt, prompt) {
   content = content.replace(emoji, "");
   content = content.replace("[]", "");
   //处理ai返回内容
-  const symbols = "，。“”‘’,.！？''\"\""; // 定义分割符号
-  const regex = new RegExp("[" + symbols + "]", "g");
+  const symbols = "，。“”‘’,.！？'' "; // 定义分割符号
+  const regex = new RegExp("[" + symbols.replace(" ", "\\s") + "]", "g");
   let reply: string[] = content.split(regex);
   return {
     reply: reply,
@@ -488,12 +498,38 @@ async function sendReply(
     if (enableMemes) {
       session.send(
         console.log(
-          `${formattedDateTime} 发送表情:${resolve(memesPath, `${emoji}.png`)}`
+          `${formattedDateTime} 发送表情:${path.resolve(
+            memesPath,
+            `${emoji}.png`
+          )}`
         ),
         session.send(
-          h.image(pathToFileURL(resolve(memesPath, `${emoji}.png`)).href)
+          h.image(
+            pathToFileURL(
+              path.resolve(memes[emoji][randomInt(0, memes[emoji].length)])
+            ).href
+          )
         )
       );
     }
+  }
+}
+function readFilesInDirectory(directoryPath: string): string[] {
+  try {
+    // 读取目录内容
+    const files = fs.readdirSync(directoryPath);
+
+    // 过滤出文件，排除目录
+    const filePaths = files
+      .map((file) => path.join(directoryPath, file))
+      .filter((filePath) => {
+        const stat = fs.statSync(filePath);
+        return stat.isFile();
+      });
+
+    return filePaths;
+  } catch (err) {
+    console.error("读取表情错误:", err);
+    return [];
   }
 }
