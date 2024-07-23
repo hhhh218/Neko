@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-neko",
   "description": "仿真度高可以发表情的ai群友，甚至可以私聊当女友(划掉",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
